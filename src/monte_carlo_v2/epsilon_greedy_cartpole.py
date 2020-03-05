@@ -30,6 +30,11 @@ def discrete_value(value, min_v, max_v, num_state):
 
 def obs_to_state(observation):
     position, velocity, angle, velocity_at_tip = observation
+    # position = round(position, 1)
+    # velocity = round(velocity, 1)
+    # angle = round(angle, 1)
+    # velocity_at_tip = round(velocity_at_tip, 1)
+    # return str([position, velocity, angle, velocity_at_tip])
     position = discrete_value(position, MIN_MAX_POSITION[0], MIN_MAX_POSITION[1], NUM_STATE_POSITION)
     velocity = discrete_value(velocity, MIN_MAX_VELOCITY[0], MIN_MAX_VELOCITY[1], NUM_STATE_VELOCITY)
     angle = discrete_value(angle, MIN_MAX_ANGLE[0], MIN_MAX_ANGLE[1], NUM_STATE_ANGLE)
