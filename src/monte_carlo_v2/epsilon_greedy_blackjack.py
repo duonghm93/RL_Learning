@@ -70,6 +70,8 @@ def mc_control(env, num_episodes, gamma, epsilon):
                 q[step.state][step.action] = np.average(returns[current_sa])
                 policy.q = q
             visited_sa.add(current_sa)
+        if i % 100 == 0:
+            print("Ep %s: %s" % (i, check_win_ratio(env, policy, 10000)))
     return policy
 
 
@@ -106,8 +108,8 @@ def check_win_ratio(env, policy, num_ep):
 
 if __name__ == "__main__":
     print("Training ....")
-    policy = mc_control(env, 100000, 0.99, 0.05)
+    policy = mc_control(env, 10000, 0.99, 0.05)
     print("eval: ")
-    print(check_win_ratio(env, policy, 100000))
+    print(check_win_ratio(env, policy, 10000))
 
 
