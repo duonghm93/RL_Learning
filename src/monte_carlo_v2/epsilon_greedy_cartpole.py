@@ -10,13 +10,13 @@ Step = namedtuple('Step', ('state', 'action', 'reward'))
 
 
 MIN_MAX_POSITION = (-2.4, 2.4)
-NUM_STATE_POSITION = 4
+NUM_STATE_POSITION = 20
 MIN_MAX_VELOCITY = (-3, 3)
-NUM_STATE_VELOCITY = 8
+NUM_STATE_VELOCITY = 30
 MIN_MAX_ANGLE = (-0.418, 0.418)
-NUM_STATE_ANGLE = 8
+NUM_STATE_ANGLE = 30
 MIN_MAX_VELOCITY_AT_TIP = (-2, 2)
-NUM_STATE_VELOCITY_AT_TIP = 8
+NUM_STATE_VELOCITY_AT_TIP = 30
 
 
 def discrete_value(value, min_v, max_v, num_state):
@@ -110,7 +110,7 @@ def mc_control(env, num_episodes, gamma, epsilon):
 
 
 if __name__ == "__main__":
-    env = gym.make('CartPole-v0')
+    env = gym.make('CartPole-v1')
     print("Training ....")
     policy = mc_control(env, 10000, 0.99, 0.05)
     env.close()
