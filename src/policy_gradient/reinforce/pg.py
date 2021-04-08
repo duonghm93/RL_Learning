@@ -1,10 +1,16 @@
 import gym
 import tensorflow as tf
+import keras
 from keras.models import Sequential
 from keras.layers import Dense, InputLayer
 from keras.optimizers import Adam
 from keras.initializers import GlorotUniform
 import numpy as np
+
+from datetime import datetime
+logdir = "logs/scalars/" + datetime.now().strftime("%Y%m%d-%H%M%S")
+file_writer = tf.summary.create_file_writer(logdir + "/metrics")
+file_writer.set_as_default()
 
 
 def create_model():
@@ -23,6 +29,7 @@ def create_model():
 
 
 class Reinforce(object):
+    ep = 0
     def __init__(self, model, optimizer, gamma, n_acts):
         self.model = model
         self.optimizer = optimizer
@@ -46,6 +53,8 @@ class Reinforce(object):
             vars = self.model.trainable_variables
             grads = tape.gradient(loss, vars)
             self.optimizer.apply_gradients(zip(grads, vars))
+        tf.summary.scalar('loss', data=np.mean(loss), step=Reinforce.ep)
+        Reinforce.ep += 1
 
 
 def to_discount_rewards(rewards, gamma):
@@ -60,11 +69,9 @@ def to_discount_rewards(rewards, gamma):
 
 
 if __name__ == '__main__':
-    # print(to_discount_rewards([1,2,3,4], 0.9))
-
     np.random.seed(0)
     model = create_model()
-    optimizer = Adam(learning_rate=0.01)
+    optimizer = Adam(learning_rate=0.001)
     model.summary()
 
     n_epochs = 1000
@@ -88,6 +95,7 @@ if __name__ == '__main__':
         if i%10 == 0:
             print(i, len(all_states))
         pg.learn(np.array(all_states), np.array(all_actions), np.array(all_rewards))
+        tf.summary.scalar('len', data=len(all_states), step=i)
 
 
 
