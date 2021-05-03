@@ -6,6 +6,7 @@ from keras.layers import Dense, InputLayer
 from keras.optimizers import Adam
 from keras.initializers import GlorotUniform
 import numpy as np
+import time
 
 
 from datetime import datetime
@@ -111,7 +112,7 @@ if __name__ == '__main__':
     pg = ReinfoceB(policy_model=p_model, v_model=v_model,
                    policy_optimizer=p_optimizer, v_optimizer=v_optimizer,
                    gamma=0.99, n_acts=2)
-
+    start_time = time.time()
     for i in range(n_epochs):
         all_states = []
         all_actions = []
@@ -130,3 +131,4 @@ if __name__ == '__main__':
             print(i, len(all_states))
         pg.learn(np.array(all_states), np.array(all_actions), np.array(all_rewards))
         tf.summary.scalar('len', data=len(all_states), step=i)
+        tf.summary.scalar('dur', data=round(time.time() - start_time, 0), step=i)
