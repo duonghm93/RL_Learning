@@ -10,8 +10,8 @@ import tqdm
 # tf.debugging.enable_check_numerics()
 # tf.config.run_functions_eagerly(True)
 # os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-
-logdir = "logs/ac_scalars/" + datetime.now().strftime("%Y%m%d-%H%M%S")
+cur_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+logdir = "logs/ac_scalars/" + cur_time
 file_writer = tf.summary.create_file_writer(logdir + "/metrics")
 file_writer.set_as_default()
 
@@ -89,13 +89,15 @@ def step(action):
     return np.array(next_state, np.float32), np.float32(reward), np.bool(done)
 
 
-@tf.function
+@tf.function(experimental_relax_shapes=True)
 def learn(actor: tf.keras.Model,
-           critic: tf.keras.Model,
-           actor_optimizer: tf.keras.optimizers.Optimizer,
-           critic_optimizer: tf.keras.optimizers.Optimizer,
-           gamma: float) -> tf.Tensor:
-    state = tf.cast(env.reset(), tf.float32)
+          critic: tf.keras.Model,
+          actor_optimizer: tf.keras.optimizers.Optimizer,
+          critic_optimizer: tf.keras.optimizers.Optimizer,
+          gamma: float,
+          init_state: tf.Tensor,
+          ep: int) -> tf.Tensor:
+    state = init_state
     base_state_shape = state.shape
     all_states = tf.TensorArray(dtype=tf.float32, size=0, dynamic_size=True)
     all_actions = tf.TensorArray(dtype=tf.int32, size=0, dynamic_size=True)
@@ -123,6 +125,7 @@ def learn(actor: tf.keras.Model,
         critic_loss = huber_loss(returns, values)
         critic_grads = critic_tape.gradient(critic_loss, critic.trainable_variables)
     critic_optimizer.apply_gradients(zip(critic_grads, critic.trainable_variables))
+    tf.summary.scalar('critic_loss', data=tf.reduce_mean(critic_loss), step=ep)
 
     with tf.GradientTape() as actor_tape:
         action_probs = tf.reduce_max(
@@ -132,6 +135,7 @@ def learn(actor: tf.keras.Model,
         actor_loss = -(advantage * tf.math.log(action_probs))
         actor_grads = actor_tape.gradient(actor_loss, actor.trainable_variables)
     actor_optimizer.apply_gradients(zip(actor_grads, actor.trainable_variables))
+    tf.summary.scalar('actor_loss', data=tf.reduce_mean(actor_loss), step=ep)
     return tf.math.reduce_sum(all_rewards)
 
 
@@ -145,8 +149,23 @@ if __name__ == '__main__':
     critic = Critic()
     actor_opt = tf.keras.optimizers.Adam(learning_rate=0.01)
     critc_opt = tf.keras.optimizers.Adam(learning_rate=0.01)
-    start_time = time.time()
-    for i in range(n_epochs):
-        state = env.reset()
-        total_rewards = learn(actor, critic, actor_opt, critc_opt, gamma)
-        print(i, total_rewards, round(time.time() - start_time, 0))
+    rws = []
+    base_model_folder = f'model/{cur_time}'
+    with tqdm.trange(n_epochs) as t:
+        for i in t:
+            init_state = tf.cast(env.reset(), tf.float32)
+            ep = tf.cast(i, tf.int64)
+            ep_reward = int(learn(actor, critic, actor_opt, critc_opt, gamma, init_state, ep))
+            rws.append(ep_reward)
+            avg_rw = np.mean(rws)
+            t.set_description(f'epoch {i}')
+            t.set_postfix(ep_reward=ep_reward, avg_rw=avg_rw)
+            tf.summary.scalar('reward', data=ep_reward, step=i)
+            # if i % 100 == 0:
+            #     actor.save(f'{base_model_folder}/ep{i}/actor')
+            #     critic.save(f'{base_model_folder}/ep{i}/critic')
+            if avg_rw >= 160 and i >= 100:
+                break
+    print(f'Finish at ep {i} - avg_rw {avg_rw}')
+    actor.save(f'{base_model_folder}/final_ep{i}/actor')
+    critic.save(f'{base_model_folder}/final_ep{i}/critic')
