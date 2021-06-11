@@ -16,9 +16,9 @@ class Actor(tf.keras.Model):
     def __init__(self, n_actions):
         super(Actor, self).__init__()
         self.mlp = tf.keras.Sequential([
-            Dense(64), ReLU(),
-            Dense(128), ReLU(),
-            Dense(256), ReLU(),
+            Dense(64), LeakyReLU(),
+            Dense(128), LeakyReLU(),
+            Dense(256), LeakyReLU(),
             Dense(n_actions), Softmax()
         ])
         self.n_actions = n_actions
@@ -100,6 +100,7 @@ def run_env(actor: tf.keras.Model,
 #     else:
 #         return m_states.stack(), m_actions.stack(), m_rewards.stack(), m_next_states.stack()
 huber_loss = tf.keras.losses.Huber(reduction=tf.keras.losses.Reduction.SUM)
+mse_loss = tf.keras.losses.MeanSquaredError(reduction=tf.keras.losses.Reduction.SUM)
 
 
 @tf.function
@@ -119,8 +120,9 @@ def train(actor: tf.keras.Model,
         )
         values = critic(states, training=True)
         returns = rewards + gamma * (1.0 - dones) * critic(next_states, training=True)
-        cri_loss = huber_loss(returns, values)
-        act_loss = - (returns - values) * tf.math.log(act_probs) * gammas
+        sigma = returns - values
+        cri_loss = tf.reduce_mean(tf.math.square(sigma**2))
+        act_loss = tf.reduce_mean(sigma * tf.math.log(act_probs) * gammas)
     cri_grads = cri_tape.gradient(cri_loss, critic.trainable_variables)
     critic_opt.apply_gradients(zip(cri_grads, critic.trainable_variables))
     act_grads = act_tape.gradient(act_loss, actor.trainable_variables)
@@ -138,8 +140,8 @@ if __name__ == '__main__':
     act_mdl.build((None, 4))
     cri_mdl.build((None, 4))
     # print(act_mdl.trainable_variables)
-    act_opt = tf.keras.optimizers.Adam(learning_rate=0.0001)
-    cri_opt = tf.keras.optimizers.Adam(learning_rate=0.0001)
+    act_opt = tf.keras.optimizers.Adam(learning_rate=1e-4)
+    cri_opt = tf.keras.optimizers.Adam(learning_rate=1e-4)
     gamma = 0.99
     all_total_rewards = []
     with tqdm.trange(n_epochs) as t:
@@ -152,7 +154,7 @@ if __name__ == '__main__':
             t.set_description(f"Epoch {i}")
             t.set_postfix(reward_cur = e_reward, reward_avg=avg_rewards,
                           loss_cri=e_cri_loss, loss_act=e_act_loss)
-            if avg_rewards >= 195 and i >= 100:
+            if avg_rewards >= 199 and i >= 100:
                 break
     print(f'Finish at ep {i} - avg_rw {avg_rewards}')
     act_mdl.save(f'{base_model_folder}/final_ep{i}/actor')
